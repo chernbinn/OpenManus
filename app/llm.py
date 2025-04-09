@@ -22,6 +22,7 @@ from app.bedrock import BedrockClient
 from app.config import LLMSettings, config
 from app.exceptions import TokenLimitExceeded
 from app.logger import logger  # Assuming a logger is set up in your app
+from app.ollamaclient import OllamaClient
 from app.schema import (
     ROLE_VALUES,
     TOOL_CHOICE_TYPE,
@@ -228,6 +229,8 @@ class LLM:
                 )
             elif self.api_type == "aws":
                 self.client = BedrockClient()
+            elif self.api_type == "ollama":
+                self.client = OllamaClient(base_url=self.base_url)
             else:
                 self.client = AsyncOpenAI(api_key=self.api_key, base_url=self.base_url)
 
