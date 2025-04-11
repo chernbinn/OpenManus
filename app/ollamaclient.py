@@ -2,9 +2,19 @@ import json
 import time
 import uuid
 from datetime import datetime
-from typing import Dict, List, Literal, Optional
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Literal,
+    Mapping,
+    Optional,
+    Sequence,
+    Union,
+)
 
-from ollama import AsyncClient, ChatResponse
+from ollama import AsyncClient, ChatResponse, Tool
 
 from app.logger import logger  # Assuming a logger is set up in your app
 
@@ -103,13 +113,22 @@ class OllamaClient:
     """
 
     async def send_request(
-        self, model: str, messages, inferenceConfig: Optional[Dict] = None, **kwargs
+        self,
+        model: str,
+        messages,
+        inferenceConfig: Optional[Dict] = None,
+        tools: Optional[Sequence[Union[Mapping[str, Any], Tool, Callable]]] = None,
     ):
         logger.info(f"请求数据: {json.dumps(messages, indent=2, ensure_ascii=False)}")
+
+        if "deepseek" in model:
+            logger.info("deepseek模型不支持工具调用")
+            tools = None
 
         response = await self.client.chat(
             model=model,
             messages=messages,
+            tools=tools,
             stream=False,
             format=ChatResponse.model_json_schema(),
         )
@@ -234,10 +253,12 @@ class ChatCompletions:
         for i, item in enumerate(messages):
             logger.info(f"ds_messages[{i}]: {json.dumps(item, indent=2, ensure_ascii=False)}")
         """
+        # logger.info(f"openai tools: {json.dumps(tools, indent=2, ensure_ascii=False)}")
         response = await self.client.send_request(
             model=model,
             messages=messages,
             inferenceConfig={"temperature": temperature, "maxTokens": max_tokens},
+            tools=tools if tools else None,
         )
         openai_response = self._convert_deepseek_response_to_openai_format(response)
         logger.info(
@@ -284,14 +305,13 @@ class ChatCompletions:
         **kwargs,
     ) -> OpenAIResponse:
         # Main entry point for chat completion
-        _tools = []
         if stream:
             return await self._invoke_stream(
                 model,
                 messages,
                 max_tokens,
                 temperature,
-                _tools,
+                tools,
                 tool_choice,
                 **kwargs,
             )
@@ -301,7 +321,7 @@ class ChatCompletions:
                 messages,
                 max_tokens,
                 temperature,
-                _tools,
+                tools,
                 tool_choice,
                 **kwargs,
             )
